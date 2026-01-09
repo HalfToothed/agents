@@ -2,8 +2,8 @@ import fs from "fs";
 import fetch from "node-fetch";
 
 const OLLAMA_URL = "http://localhost:11434";
-const CHAT_MODEL = "llama3.1:8b";        // example
-const EMBED_MODEL = "nomic-embed-text";  // example
+const CHAT_MODEL = "llama3.1";
+const EMBED_MODEL = "nomic-embed-text";
 
 function cosineSimilarity(a, b) {
   const dot = a.reduce((s, v, i) => s + v * b[i], 0);
@@ -41,7 +41,7 @@ async function chat(prompt) {
 
 function loadBook() {
   const raw = fs.readFileSync("data/art_of_war.txt", "utf-8");
-  return raw.split(/\n(?=Chapter\s+\d+)/);
+  return raw.split(/\n(?=Chapter\s+[IVXLCDM]+\.\s+)/);
 }
 
 async function buildIndex(chapters) {
@@ -54,11 +54,10 @@ async function buildIndex(chapters) {
 }
 
 export async function answerQuestion(question) {
+  console.log(question)
   const chapters = loadBook();
   const index = await buildIndex(chapters);
-
   const qEmbedding = await embed(question);
-
   const ranked = index
     .map(c => ({
       ...c,
