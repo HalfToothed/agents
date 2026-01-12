@@ -42,9 +42,10 @@ async function Run(){
 
 async function runInference(conversation) {
   const response = await ollama.chat({
-    model: 'llama3.1',           // or mistral, qwen, etc.
-    messages: conversation,    // full conversation history
-    stream: false,             // blocking (Claude-like)
+    model: 'llama3.1', 
+    messages: conversation,
+    tools: [addTwoNumbersTool, subtractTwoNumbersTool],    
+    stream: false,             
   })
 
   return {
@@ -52,5 +53,51 @@ async function runInference(conversation) {
     content: response.message.content
   }
 }
+
+
+// Add two numbers function
+function addTwoNumbers({a,b}) {
+    return a + b;
+}
+
+// Subtract two numbers function 
+function subtractTwoNumbers({a,b}) {
+    return a - b;
+}
+
+// Tool definition for add function
+const addTwoNumbersTool = {
+    type: 'function',
+    function: {
+        name: 'addTwoNumbers',
+        description: 'Add two numbers together',
+        parameters: {
+            type: 'object',
+            required: ['a', 'b'],
+            properties: {
+                a: { type: 'number', description: 'The first number' },
+                b: { type: 'number', description: 'The second number' }
+            }
+        }
+    }
+};
+
+// Tool definition for subtract function
+const subtractTwoNumbersTool = {
+    type: 'function',
+    function: {
+        name: 'subtractTwoNumbers',
+        description: 'Subtract two numbers',
+        parameters: {
+            type: 'object',
+            required: ['a', 'b'],
+            properties: {
+                a: { type: 'number', description: 'The first number' },
+                b: { type: 'number', description: 'The second number' }
+            }
+        }
+    }
+};
+
 
 await Run();
