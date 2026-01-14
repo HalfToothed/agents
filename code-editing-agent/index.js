@@ -4,74 +4,49 @@ import readline from 'node:readline';
 
 
 // Add two numbers function
-// function addTwoNumbers({a,b}) {
-//     return a + b;
-// }
-
-// // Subtract two numbers function 
-// function subtractTwoNumbers({a,b}) {
-//     return a - b;
-// }
-
-// // Tool definition for add function
-// const addTwoNumbersTool = {
-//     type: 'function',
-//     function: {
-//         name: 'addTwoNumbers',
-//         description: 'Add two numbers together',
-//         parameters: {
-//             type: 'object',
-//             required: ['a', 'b'],
-//             properties: {
-//                 a: { type: 'number', description: 'The first number' },
-//                 b: { type: 'number', description: 'The second number' }
-//             }
-//         }
-//     }
-// };
-
-// // Tool definition for subtract function
-// const subtractTwoNumbersTool = {
-//     type: 'function',
-//     function: {
-//         name: 'subtractTwoNumbers',
-//         description: 'Subtract two numbers',
-//         parameters: {
-//             type: 'object',
-//             required: ['a', 'b'],
-//             properties: {
-//                 a: { type: 'number', description: 'The first number' },
-//                 b: { type: 'number', description: 'The second number' }
-//             }
-//         }
-//     }
-// };
-
-function getTemperature(city) {
-  const temperatures = {
-    'New York': '22°C',
-    'London': '15°C',
-    'Tokyo': '18°C',
-  }
-  return temperatures[city] ?? 'Unknown'
+function addTwoNumbers({a,b}) {
+    return a + b;
 }
 
-const tools = [
-  {
+// Subtract two numbers function 
+function subtractTwoNumbers({a,b}) {
+    return a - b;
+}
+
+// Tool definition for add function
+const addTwoNumbersTool = {
     type: 'function',
     function: {
-      name: 'get_temperature',
-      description: 'Get the current temperature for a city',
-      parameters: {
-        type: 'object',
-        required: ['city'],
-        properties: {
-          city: { type: 'string', description: 'The name of the city' },
-        },
-      },
-    },
-  },
-]
+        name: 'addTwoNumbers',
+        description: 'Add two numbers together',
+        parameters: {
+            type: 'object',
+            required: ['a', 'b'],
+            properties: {
+                a: { type: 'number', description: 'The first number' },
+                b: { type: 'number', description: 'The second number' }
+            }
+        }
+    }
+};
+
+// Tool definition for subtract function
+const subtractTwoNumbersTool = {
+    type: 'function',
+    function: {
+        name: 'subtractTwoNumbers',
+        description: 'Subtract two numbers',
+        parameters: {
+            type: 'object',
+            required: ['a', 'b'],
+            properties: {
+                a: { type: 'number', description: 'The first number' },
+                b: { type: 'number', description: 'The second number' }
+            }
+        }
+    }
+};
+
 
 export function getUserMessage() {
   return new Promise((resolve) => {
@@ -115,29 +90,41 @@ async function Run(){
 
         conversation.push(userMessage)
         let response = await runInference(conversation)
-        if(response.message.tool_calls?.length){
-             const call = response.message.tool_calls[0]
-                const args = call.function.arguments;
-                let result = getTemperature(args.city)
 
+        if (response.message.tool_calls) {
+    
+          for (const call of response.message.tool_calls) {
+           
+            let result
+            if (call.function.name === 'addTwoNumbers') {
+              const args = call.function.arguments
+              result = addTwoNumbers(args.a, args.b)
+            } else if (call.function.name === 'subtractTwoNumbers') {
+              const args = call.function.arguments
+              result = subtractTwoNumbers(args.a, args.b)
+            } else {
+              result = 'Unknown tool'
+            }
+            // add the tool result to the messages
             conversation.push({ role: 'tool', tool_name: call.function.name, content: result })
             response = await runInference(conversation)
+          }
         }
+
         conversation.push(response.message)
         
         console.log("Agent:", response.message.content)
+        console.log();
     }
 }
 
 async function runInference(conversation) {
   const response = await ollama.chat({
-    model: 'llama3.1', 
+    model: 'functiongemma', 
     messages: conversation,
-    tools: tools,
-    think: true             
+    tools: [addTwoNumbersTool, subtractTwoNumbersTool],
   })
   return response
 }
-
 
 await Run();
