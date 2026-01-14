@@ -1,6 +1,8 @@
 import ollama from 'ollama'
 import 'dotenv/config'
 import readline from 'node:readline';
+import fs from 'node:fs';
+import path from 'path';
 
 
 // Add two numbers function
@@ -11,6 +13,31 @@ function addTwoNumbers({a,b}) {
 // Subtract two numbers function 
 function subtractTwoNumbers({a,b}) {
     return a - b;
+}
+
+function readFile(filename){
+  try {
+    const filePath = path.resolve(filename);
+    const data = fs.readFileSync(filePath, 'utf8');
+    return data;
+  } catch (err) {
+    console.error(err);
+  }
+} 
+
+const readFileTool = {
+  type: 'function',
+  function: {
+    name: 'readFile',
+    description: 'Read the contents of a given relative file path. Use this when you want to see whats inside a file. Do not use this with directory names.',
+    parameters: {
+        type: 'object',
+        required: ['file'],
+        properties: {
+          file: { type: 'string', description: 'The relative file path' },
+        },
+    }
+  }
 }
 
 // Tool definition for add function
@@ -62,6 +89,32 @@ export function getUserMessage() {
   });
 }
 
+function executeTool(response, conversation){
+    for (const call of response.message.tool_calls) {
+    
+      let result
+      if (call.function.name === 'addTwoNumbers') {
+        const args = call.function.arguments
+        result = addTwoNumbers(args.a, args.b)
+      } 
+      else if (call.function.name === 'subtractTwoNumbers') {
+        const args = call.function.arguments
+        result = subtractTwoNumbers(args.a, args.b)
+      }
+      else if (call.function.name === 'readFile') {
+        const args = call.function.arguments
+        result = readFile(args.file)
+      } 
+      else {
+        result = 'Unknown tool'
+      }
+      // add the tool result to the messages
+      conversation.push({ role: 'tool', tool_name: call.function.name, content: result })  
+  }
+
+  return conversation
+}
+
 async function Run(){
     const conversation = []
     
@@ -92,23 +145,8 @@ async function Run(){
         let response = await runInference(conversation)
 
         if (response.message.tool_calls) {
-    
-          for (const call of response.message.tool_calls) {
-           
-            let result
-            if (call.function.name === 'addTwoNumbers') {
-              const args = call.function.arguments
-              result = addTwoNumbers(args.a, args.b)
-            } else if (call.function.name === 'subtractTwoNumbers') {
-              const args = call.function.arguments
-              result = subtractTwoNumbers(args.a, args.b)
-            } else {
-              result = 'Unknown tool'
-            }
-            // add the tool result to the messages
-            conversation.push({ role: 'tool', tool_name: call.function.name, content: result })
-            response = await runInference(conversation)
-          }
+          let conversations = executeTool(response, conversation)
+          response = await runInference(conversations)
         }
 
         conversation.push(response.message)
@@ -120,9 +158,9 @@ async function Run(){
 
 async function runInference(conversation) {
   const response = await ollama.chat({
-    model: 'functiongemma', 
+    model: 'functiongemma',
     messages: conversation,
-    tools: [addTwoNumbersTool, subtractTwoNumbersTool],
+    tools: [addTwoNumbersTool, subtractTwoNumbersTool, readFileTool],
   })
   return response
 }
