@@ -15,6 +15,12 @@ function subtractTwoNumbers({a,b}) {
     return a - b;
 }
 
+function listFiles(directory_name){
+  const parentDir = path.join(directory_name, '..');
+  let filenames = fs.readdirSync(parentDir);
+  return filenames.toString();
+}
+
 function readFile(filename){
   try {
     const filePath = path.resolve(filename);
@@ -25,6 +31,21 @@ function readFile(filename){
   }
 } 
 
+const listFilesTool = {
+  type:'function',
+  function:{
+    name: 'listFiles',
+    description: 'List files and directories at a given path. If no path is provided, lists files in the current directory.',
+    parameters: {
+      type:'object',
+      required:['file'],
+      properties:{
+        file:{type:'string', description:'the name or relative path of the directory'}
+      }
+    }
+  }
+}
+
 const readFileTool = {
   type: 'function',
   function: {
@@ -34,7 +55,7 @@ const readFileTool = {
         type: 'object',
         required: ['file'],
         properties: {
-          file: { type: 'string', description: 'The relative file path' },
+          file: { type: 'string', description: 'The name or relative file path' },
         },
     }
   }
@@ -105,14 +126,16 @@ function executeTool(response, conversation){
         const args = call.function.arguments
         result = readFile(args.file)
       } 
+      else if (call.function.name === 'listFiles') {
+        const args = call.function.arguments
+        result = listFiles(args.file)
+      } 
       else {
         result = 'Unknown tool'
       }
       // add the tool result to the messages
       conversation.push({ role: 'tool', tool_name: call.function.name, content: result })  
   }
-
-  return conversation
 }
 
 async function Run(){
@@ -126,9 +149,7 @@ async function Run(){
     let message = await runInference(conversation)
     conversation.push(message)
     
-    
     console.log("Chat with ollama (use 'ctrl-c' to quit)")
-    
 
     while (true){
         let userInput = await getUserMessage();
@@ -144,9 +165,9 @@ async function Run(){
         conversation.push(userMessage)
         let response = await runInference(conversation)
 
-        if (response.message.tool_calls) {
-          let conversations = executeTool(response, conversation)
-          response = await runInference(conversations)
+        while (response.message.tool_calls) {
+          executeTool(response, conversation)
+          response = await runInference(conversation)
         }
 
         conversation.push(response.message)
@@ -158,9 +179,9 @@ async function Run(){
 
 async function runInference(conversation) {
   const response = await ollama.chat({
-    model: 'functiongemma',
+    model: 'llama3.1',
     messages: conversation,
-    tools: [addTwoNumbersTool, subtractTwoNumbersTool, readFileTool],
+    tools: [addTwoNumbersTool, subtractTwoNumbersTool, readFileTool, listFilesTool],
   })
   return response
 }
