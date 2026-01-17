@@ -112,7 +112,7 @@ export function getUserMessage() {
 
 function executeTool(response, conversation){
     for (const call of response.message.tool_calls) {
-    
+      console.log("Tool: ",call);
       let result
       if (call.function.name === 'addTwoNumbers') {
         const args = call.function.arguments
